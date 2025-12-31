@@ -53,10 +53,8 @@
     </p>
   </div>
 
-  <!-- Beat -->
-  <audio id="beat" preload="auto" loop>
-    <source src="bott.mp3" type="audio/mpeg">
-  </audio>
+  <!-- Beat (keep it simple: src on the audio tag is the most reliable) -->
+  <audio id="beat" src="bott.mp3" preload="auto" loop></audio>
 
   <script>
     // ----- Beat controls -----
@@ -66,123 +64,4 @@
     const statusEl = document.getElementById("status");
     const audioStatus = document.getElementById("audioStatus");
 
-    function setBeatStatus(on){
-      statusEl.textContent = on ? "Beat: ON" : "Beat: OFF";
-      statusEl.className = "small " + (on ? "ok" : "bad");
-      startBtn.disabled = on;
-      stopBtn.disabled = !on;
-    }
-
-    // ----- WebAudio (keys) -----
-    let audioCtx = null;
-    let keysUnlocked = false;
-
-    function ensureAudioCtx(){
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === "suspended") audioCtx.resume();
-      keysUnlocked = true;
-      audioStatus.textContent = "Keys: READY";
-      audioStatus.className = "small ok";
-    }
-
-    // Notes (16 keys) – 2 octaves-ish
-    const keyToNote = {
-      // top row
-      "q": {label:"Q", note:"C4",  freq:261.63},
-      "w": {label:"W", note:"D4",  freq:293.66},
-      "e": {label:"E", note:"E4",  freq:329.63},
-      "r": {label:"R", note:"F4",  freq:349.23},
-
-      // middle row
-      "a": {label:"A", note:"G4",  freq:392.00},
-      "s": {label:"S", note:"A4",  freq:440.00},
-      "d": {label:"D", note:"B4",  freq:493.88},
-      "f": {label:"F", note:"C5",  freq:523.25},
-
-      // right middle
-      "g": {label:"G", note:"D5",  freq:587.33},
-      "h": {label:"H", note:"E5",  freq:659.25},
-      "j": {label:"J", note:"F5",  freq:698.46},
-      "k": {label:"K", note:"G5",  freq:783.99},
-
-      // top right
-      "u": {label:"U", note:"A5",  freq:880.00},
-      "i": {label:"I", note:"B5",  freq:987.77},
-      "o": {label:"O", note:"C6",  freq:1046.50},
-      "p": {label:"P", note:"D6",  freq:1174.66},
-    };
-
-    // Build UI cards
-    const keysGrid = document.getElementById("keysGrid");
-    Object.entries(keyToNote).forEach(([k, info]) => {
-      const div = document.createElement("div");
-      div.className = "key";
-      div.innerHTML = `<b>${info.label}</b><div class="hint">${info.note}</div>`;
-      keysGrid.appendChild(div);
-    });
-
-    // Play a quick synth note
-    function playNote(freq){
-      if (!keysUnlocked) return;
-
-      const now = audioCtx.currentTime;
-
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-
-      osc.type = "sine"; // clean sound
-      osc.frequency.setValueAtTime(freq, now);
-
-      // Envelope: fast attack, short decay
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.35, now + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      osc.start(now);
-      osc.stop(now + 0.3);
-    }
-
-    // Start beat (also unlock keys audio)
-    startBtn.addEventListener("click", async () => {
-      try {
-        ensureAudioCtx(); // unlock keys audio first
-
-        // unlock beat for mobile then play
-        beat.muted = true;
-        await beat.play();
-        beat.pause();
-        beat.currentTime = 0;
-        beat.muted = false;
-
-        await beat.play();
-        setBeatStatus(true);
-      } catch (e) {
-        setBeatStatus(false);
-        alert("Beat blocked or bott.mp3 not loading.");
-        console.log(e);
-      }
-    });
-
-    stopBtn.addEventListener("click", () => {
-      beat.pause();
-      beat.currentTime = 0;
-      setBeatStatus(false);
-    });
-
-    // Keyboard listener
-    window.addEventListener("keydown", (e) => {
-      const k = e.key.toLowerCase();
-      if (!keyToNote[k]) return;
-      if (!keysUnlocked) return;
-      playNote(keyToNote[k].freq);
-    });
-
-    // Initial status
-    setBeatStatus(false);
-  </script>
-
-</body>
-</html>
+    function setBeat 

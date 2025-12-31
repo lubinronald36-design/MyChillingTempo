@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -11,6 +10,7 @@
     .box{padding:14px 16px;border:1px solid #ddd;border-radius:12px;margin:12px 0}
     button{padding:10px 14px;border-radius:10px;border:1px solid #111;background:#111;color:#fff;cursor:pointer}
     button:disabled{opacity:.5;cursor:not-allowed}
+    select,input{padding:10px 12px;border-radius:10px;border:1px solid #bbb;background:#fff}
     kbd{padding:2px 6px;border:1px solid #ccc;border-radius:6px;background:#f7f7f7}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .small{color:#555;font-size:14px}
@@ -20,23 +20,56 @@
     .key{padding:12px;border:1px solid #ddd;border-radius:12px;text-align:center;background:#fff;user-select:none}
     .key.active{outline:3px solid #111}
     .hint{margin-top:6px;font-size:13px;color:#666}
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;border:1px solid #ddd;background:#fafafa;font-size:12px;color:#444}
     @media (max-width:720px){ .keys{grid-template-columns:repeat(4,1fr)} }
   </style>
 </head>
 
 <body>
   <h1>MyChillingTime 🎵</h1>
-  <div class="small">Beat + many playable keys (real notes).</div>
+  <div class="small">Beat + playable keys (real notes) + Konpa scales + Record/Loop.</div>
 
+  <!-- Instructions + share link -->
+  <div class="box">
+    <div class="small"><b>How to play:</b></div>
+    <div class="small">
+      1) Click <b>Start Beat</b> to unlock audio 🎧<br>
+      2) Use keys: <b>1 2 3 4 Q W E R A S D F Z X C V</b><br>
+      3) Tap the on-screen keys on mobile 📱
+    </div>
+    <p class="small" style="margin-top:10px;">
+      Share this link: <span id="shareLink"></span>
+    </p>
+  </div>
+
+  <!-- Controls -->
   <div class="box">
     <div class="row">
       <button id="startBtn">Start Beat</button>
       <button id="stopBtn" disabled>Stop Beat</button>
       <span id="status" class="small bad">Beat: OFF</span>
       <span id="audioStatus" class="small bad">Keys: LOCKED</span>
+      <span id="loopStatus" class="pill">Loop: OFF</span>
     </div>
+
+    <div class="row" style="margin-top:10px;">
+      <label class="small"><b>Scale:</b></label>
+      <select id="scaleSelect">
+        <option value="konpa_minor" selected>Konpa (Minor vibe)</option>
+        <option value="konpa_major">Konpa (Major vibe)</option>
+        <option value="pentatonic">Pentatonic (safe)</option>
+      </select>
+
+      <label class="small"><b>Loop (sec):</b></label>
+      <input id="loopLen" type="number" min="1" step="0.5" value="4" style="width:90px" />
+
+      <button id="recBtn">Record</button>
+      <button id="stopRecBtn" disabled>Stop Rec</button>
+      <button id="clearLoopBtn">Clear Loop</button>
+    </div>
+
     <div class="hint">
-      Tip: Click <b>Start Beat</b> (or tap any key box) once to unlock audio, then play keys freely.
+      Tip: Click <b>Start Beat</b> (or tap any key box) once to unlock audio. Record captures your notes and loops them.
     </div>
   </div>
 
@@ -51,175 +84,15 @@
     <div class="keys" id="keysGrid"></div>
 
     <p class="small" style="margin-top:10px;">
-      These keys generate real notes using the browser (no key.wav needed).
+      Notes are generated in the browser (no key.wav needed).
     </p>
   </div>
 
-  <!-- Beat file (must be in same folder as index.html). If your file is bott.mp3, keep it exactly like this. -->
+  <!-- Beat file (must be in same folder as index.html) -->
   <audio id="beat" src="bott.mp3" preload="auto" loop></audio>
 
   <script>
-    // =========================
-    // 0) Elements
-    // =========================
-    const beat = document.getElementById("beat");
-    const startBtn = document.getElementById("startBtn");
-    const stopBtn  = document.getElementById("stopBtn");
-    const statusEl = document.getElementById("status");
-    const audioStatus = document.getElementById("audioStatus");
-    const keysGrid = document.getElementById("keysGrid");
-
-    // =========================
-    // 1) UI helpers
-    // =========================
-    function setBeatUI(isOn){
-      if (isOn) {
-        statusEl.textContent = "Beat: ON";
-        statusEl.classList.remove("bad");
-        statusEl.classList.add("ok");
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-      } else {
-        statusEl.textContent = "Beat: OFF";
-        statusEl.classList.remove("ok");
-        statusEl.classList.add("bad");
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-      }
-    }
-
-    function setKeysUI(unlocked){
-      if (unlocked) {
-        audioStatus.textContent = "Keys: UNLOCKED";
-        audioStatus.classList.remove("bad");
-        audioStatus.classList.add("ok");
-      } else {
-        audioStatus.textContent = "Keys: LOCKED";
-        audioStatus.classList.remove("ok");
-        audioStatus.classList.add("bad");
-      }
-    }
-
-    setBeatUI(false);
-    setKeysUI(false);
-
-    // =========================
-    // 2) Audio unlock (IMPORTANT)
-    // Browsers require a click/tap to unlock audio.
-    // =========================
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new AudioCtx();
-    let audioUnlocked = false;
-
-    async function unlockAudio(){
-      if (audioUnlocked) return;
-      try {
-        if (ctx.state !== "running") {
-          await ctx.resume();
-        }
-        audioUnlocked = true;
-        setKeysUI(true);
-      } catch (e) {
-        // If it fails, user can click again
-        console.log("unlockAudio error:", e);
-      }
-    }
-
-    // =========================
-    // 3) Musical note generator
-    // =========================
-    function playNote(freq, duration = 0.12) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = "triangle";
-      osc.frequency.value = freq;
-
-      const now = ctx.currentTime;
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.35, now + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start(now);
-      osc.stop(now + duration);
-    }
-
-    // 16 keys
-    const keyMap = ["1","2","3","4","q","w","e","r","a","s","d","f","z","x","c","v"];
-
-    // 16 notes (pleasant scale)
-    const freqs = [
-      261.63, 293.66, 329.63, 349.23,
-      392.00, 440.00, 493.88, 523.25,
-      587.33, 659.25, 698.46, 783.99,
-      880.00, 987.77, 1046.50, 1174.66
-    ];
-
-    // =========================
-    // 4) Build visual key buttons (tap/click works even on mobile)
-    // =========================
-    keysGrid.innerHTML = "";
-    keyMap.forEach((k, i) => {
-      const div = document.createElement("div");
-      div.className = "key";
-      div.dataset.key = k;
-      div.innerHTML = `<b>${k.toUpperCase()}</b><div class="hint">${Math.round(freqs[i])} Hz</div>`;
-
-      div.addEventListener("pointerdown", async () => {
-        await unlockAudio();
-        playNote(freqs[i]);
-        div.classList.add("active");
-        setTimeout(() => div.classList.remove("active"), 120);
-      });
-
-      keysGrid.appendChild(div);
-    });
-
-    // =========================
-    // 5) Keyboard support
-    // IMPORTANT: keyboard cannot unlock audio by itself
-    // =========================
-    document.addEventListener("keydown", (e) => {
-      if (!audioUnlocked) return; // must click Start Beat or tap a key box first
-
-      const k = e.key.toLowerCase();
-      const idx = keyMap.indexOf(k);
-      if (idx === -1) return;
-
-      playNote(freqs[idx]);
-
-      const el = document.querySelector(`[data-key="${k}"]`);
-      if (el) {
-        el.classList.add("active");
-        setTimeout(() => el.classList.remove("active"), 120);
-      }
-    });
-
-    // =========================
-    // 6) Start/Stop beat buttons
-    // =========================
-    startBtn.addEventListener("click", async () => {
-      await unlockAudio(); // unlock keys + allow beat
-      try {
-        await beat.play();
-        setBeatUI(true);
-      } catch (err) {
-        console.log("Beat play error:", err);
-        alert("Beat did not play. Check that bott.mp3 is in the SAME folder as index.html and the name matches exactly.");
-      }
-    });
-
-    stopBtn.addEventListener("click", () => {
-      beat.pause();
-      beat.currentTime = 0;
-      setBeatUI(false);
-    });
-  </script>
-</body>
-</html>
+    //
 
 On Wed, Dec 31, 2025, 2:28 AM Ronald Lubin <lubinronald36@gmail.com> wrote:
 <!doctype html>

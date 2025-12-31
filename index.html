@@ -21,7 +21,50 @@
     @media (max-width:720px){ .keys{grid-template-columns:repeat(4,1fr)} }
   </style>
 </head>
-<body>
+<body>// ===== Musical keys (no key.wav needed) =====
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+const ctx = new AudioCtx();
+
+function playNote(freq, duration = 0.12) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = "triangle"; // more musical than a click
+  osc.frequency.value = freq;
+
+  gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+}
+
+// 16 notes (nice scale). You can change these later.
+const freqs = [
+  261.63, 293.66, 329.63, 349.23, // C D E F
+  392.00, 440.00, 493.88, 523.25, // G A B C
+  587.33, 659.25, 698.46, 783.99, // D E F G
+  880.00, 987.77, 1046.50, 1174.66 // A B C D
+];
+
+// Your 16 keys (same mapping you were using)
+const keyMap = ["1","2","3","4","q","w","e","r","a","s","d","f","z","x","c","v"];
+
+document.addEventListener("keydown", async (e) => {
+  // unlock audio on first interaction (important on phones)
+  if (ctx.state !== "running") await ctx.resume();
+
+  const k = e.key.toLowerCase();
+  const idx = keyMap.indexOf(k);
+  if (idx === -1) return;
+
+  playNote(freqs[idx], 0.12);
+});
+</body>
 
   <h1>MyChillingTime 🎵</h1>
   <div class="small">Beat + many playable keys (real notes).</div>
